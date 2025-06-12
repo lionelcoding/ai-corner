@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VEO 3 + Replicate + n8n Interactive Checklist</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        .dark {
+            --tw-bg-opacity: 1;
+            background-color: rgba(17, 24, 39, var(--tw-bg-opacity));
+            color: white;
+        }
+        .dark .card-bg {
+            background-color: rgba(31, 41, 55, var(--tw-bg-opacity));
+        }
+        .dark .border-color {
+            border-color: rgba(75, 85, 99, var(--tw-bg-opacity));
+        }
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-ring-circle {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0.5s ease-in-out;
+        }
+        .tag-filter {
+            transition: all 0.3s ease;
+        }
+        .tag-filter:hover {
+            transform: translateY(-2px);
+        }
+        .concept-card {
+            transition: all 0.3s ease;
+        }
+        .concept-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .checkbox-custom {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border: 2px solid #3B82F6;
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .checkbox-custom:checked {
+            background-color: #3B82F6;
+            border-color: #3B82F6;
+        }
+        .checkbox-custom:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .search-box {
+            transition: all 0.3s ease;
+        }
+        .search-box:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            border-color: #3B82F6;
+        }
+         {
+            body { -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-200" id="header">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <img src="https://invadeai.com/uploads/img/posticons/2025/05/veo-3.webp" alt="VEO 3" class="w-8 h-8 rounded">
+                        <h1 class="text-xl font-bold text-gray-900">VEO 3 + Replicate + n8n Guide</h1>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <svg class="progress-ring w-12 h-12">
+                            <circle class="progress-ring-circle stroke-blue-500" stroke-width="4" fill="transparent" r="45%" cx="50%" cy="50%"></circle>
+                        </svg>
+                        <span class="text-sm font-medium text-gray-600" id="progress-text">0% Complete</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" id="search-input" placeholder="Search concepts..." 
+                               class="search-box w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    <button id="dark-mode-toggle" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-moon text-gray-600"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex gap-8">
+            <!-- Sidebar -->
+            <aside class="w-64 flex-shrink-0">
+                <div class="sticky top-24">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 card-bg">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Filter by Tags</h2>
+                        <div class="space-y-2" id="tag-filters">
+                            <button class="tag-filter w-full text-left px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100" data-tag="all">
+                                <i class="fas fa-list mr-2"></i>All Concepts
+                            </button>
+                            <button class="tag-filter w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50" data-tag="setup">
+                                <i class="fas fa-cog mr-2"></i>Setup & Configuration
+                            </button>
+                            <button class="tag-filter w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50" data-tag="credentials">
+                                <i class="fas fa-key mr-2"></i>Credentials & Auth
+                            </button>
+                            <button class="tag-filter w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50" data-tag="integration">
+                                <i class="fas fa-link mr-2"></i>Integration
+                            </button>
+                            <button class="tag-filter w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50" data-tag="beginner">
+                                <i class="fas fa-graduation-cap mr-2"></i>Beginner Friendly
+                            </button>
+                            <button class="tag-filter w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50" data-tag="advanced">
+                                <i class="fas fa-rocket mr-2"></i>Advanced
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Complete VEO 3 Implementation Guide</h2>
+                    <p class="text-gray-600">Follow this comprehensive checklist to set up VEO 3 video generation using Replicate and n8n automation workflows.</p>
+                </div>
+
+                <div class="space-y-8" id="concepts-container">
+                    <!-- Concept 1: Create Replicate Account -->
+                    <div class="concept-card bg-white rounded-lg shadow-sm border border-gray-200 p-6 card-bg" data-tags="setup,credentials,beginner">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" class="checkbox-custom" id="concept-1" data-concept="1">
+                                <h3 class="text-xl font-semibold text-gray-900">1. Create Replicate Account</h3>
+                                <div class="flex space-x-2">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Setup</span>
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Beginner</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <p class="text-gray-700 mb-4">
+                                <strong>Context:</strong> Replicate is a cloud platform that makes it easy to run machine learning models. 
+                                To use VEO 3 for video generation, you need to create an account on Replicate to access their API services.
+                                This is the first essential step in your automation workflow.
+                            </p>
+                            <p class="text-gray-600 text-sm">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Replicate offers a free tier with credits to get started, making it accessible for testing and small projects.
+                            </p>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <img src="https://user-images.githubusercontent.com/2289/184978386-d1d387e3-8173-406f-892a-5a5c4588108c.png" 
+                                     alt="Replicate Dashboard Interface" 
+                                     class="w-full rounded-lg border border-gray-200 shadow-sm">
+                                <p class="text-sm text-gray-500 mt-2 text-center">Replicate Dashboard Interface</p>
+                            </div>
+                            <div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="font-semibold text-gray-900 mb-2">Quick Links</h4>
+                                    <div class="space-y-2">
+                                        <a href="https://replicate.com/signup" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-external-link-alt mr-2"></i>
+                                            Sign up for Replicate
+                                        </a>
+                                        <a href="https://replicate.com/docs" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-book mr-2"></i>
+                                            Replicate Documentation
+                                        </a>
+                                        <a href="https://replicate.com/pricing" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-dollar-sign mr-2"></i>
+                                            Pricing Information
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-play-circle mr-2 text-blue-600"></i>
+                                Tutorial Video: Replicate Account Setup
+                            </h4>
+                            <div class="bg-gray-100 rounded-lg p-2">
+                                <iframe width="100%" height="315" 
+                                        src="https://www.youtube.com/embed/1VOJNDK7yqg" 
+                                        title="Replicate.com EASY AI Setup for Beginners" 
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen
+                                        class="rounded">
+                                </iframe>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Duration: 14:09 - Comprehensive setup guide for beginners</p>
+                        </div>
+                    </div>
+
+                    <!-- Concept 2: Create n8n Account -->
+                    <div class="concept-card bg-white rounded-lg shadow-sm border border-gray-200 p-6 card-bg" data-tags="setup,credentials,beginner">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" class="checkbox-custom" id="concept-2" data-concept="2">
+                                <h3 class="text-xl font-semibold text-gray-900">2. Create n8n Account</h3>
+                                <div class="flex space-x-2">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Setup</span>
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Beginner</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <p class="text-gray-700 mb-4">
+                                <strong>Context:</strong> n8n is a powerful workflow automation tool that allows you to connect different services and APIs. 
+                                You'll use n8n to create automated workflows that trigger VEO 3 video generation through Replicate's API.
+                                Setting up an n8n account gives you access to their cloud platform for easy workflow management.
+                            </p>
+                            <p class="text-gray-600 text-sm">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                n8n offers both cloud and self-hosted options. The cloud version is perfect for getting started quickly.
+                            </p>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <img src="https://raw.githubusercontent.com/n8n-io/n8n/master/assets/n8n-screenshot-readme.png" 
+                                     alt="n8n Workflow Builder Interface" 
+                                     class="w-full rounded-lg border border-gray-200 shadow-sm">
+                                <p class="text-sm text-gray-500 mt-2 text-center">n8n Workflow Builder Interface</p>
+                            </div>
+                            <div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="font-semibold text-gray-900 mb-2">Quick Links</h4>
+                                    <div class="space-y-2">
+                                        <a href="https://n8n.cloud/signup" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-external-link-alt mr-2"></i>
+                                            Sign up for n8n Cloud
+                                        </a>
+                                        <a href="https://docs.n8n.io/" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-book mr-2"></i>
+                                            n8n Documentation
+                                        </a>
+                                        <a href="https://n8n.io/pricing/" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-dollar-sign mr-2"></i>
+                                            Pricing Plans
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-play-circle mr-2 text-blue-600"></i>
+                                Tutorial Video: n8n Beginner Setup
+                            </h4>
+                            <div class="bg-gray-100 rounded-lg p-2">
+                                <iframe width="100%" height="315" 
+                                        src="https://www.youtube.com/embed/Fy1UCBcgF2o" 
+                                        title="n8n Tutorial for Beginners: How to Build AI Automations" 
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen
+                                        class="rounded">
+                                </iframe>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Duration: 19:15 - Complete beginner's guide to n8n automation</p>
+                        </div>
+                    </div>
+
+                    <!-- Concept 3: Grab Replicate Credentials -->
+                    <div class="concept-card bg-white rounded-lg shadow-sm border border-gray-200 p-6 card-bg" data-tags="credentials,setup,advanced">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" class="checkbox-custom" id="concept-3" data-concept="3">
+                                <h3 class="text-xl font-semibold text-gray-900">3. Grab Replicate API Credentials</h3>
+                                <div class="flex space-x-2">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">Credentials</span>
+                                    <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">Advanced</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <p class="text-gray-700 mb-4">
+                                <strong>Context:</strong> To authenticate your n8n workflows with Replicate's API, you need to obtain your API token from your Replicate account. 
+                                This token acts as your unique identifier and authorization key, allowing n8n to make requests to Replicate on your behalf.
+                                Keep this token secure as it provides access to your Replicate account and billing.
+                            </p>
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                <p class="text-yellow-800 text-sm">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    <strong>Security Note:</strong> Never share your API token publicly or commit it to version control. Store it securely in n8n's credential system.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Step-by-Step Process:</h4>
+                                <ol class="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                                    <li>Log into your Replicate account dashboard</li>
+                                    <li>Navigate to Account Settings → API Tokens</li>
+                                    <li>Click "Create Token" or "New Token"</li>
+                                    <li>Give your token a descriptive name (e.g., "n8n-veo3-workflow")</li>
+                                    <li>Copy the generated token immediately (it won't be shown again)</li>
+                                    <li>Store the token securely for use in n8n</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="font-semibold text-gray-900 mb-2">Quick Links</h4>
+                                    <div class="space-y-2">
+                                        <a href="https://replicate.com/account/api-tokens" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-key mr-2"></i>
+                                            Replicate API Tokens
+                                        </a>
+                                        <a href="https://replicate.com/docs/reference/http#authentication" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-shield-alt mr-2"></i>
+                                            Authentication Guide
+                                        </a>
+                                        <a href="https://replicate.com/docs/get-started/nodejs" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-code mr-2"></i>
+                                            API Usage Examples
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="bg-blue-50 rounded-lg p-4">
+                                    <h4 class="font-semibold text-blue-900 mb-2">Token Format Example</h4>
+                                    <code class="text-xs bg-white p-2 rounded border block">
+                                        r8_***************************
+                                    </code>
+                                    <p class="text-blue-700 text-xs mt-2">
+                                        Your token will start with "r8_" followed by random characters
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-play-circle mr-2 text-blue-600"></i>
+                                Tutorial Video: Getting API Credentials
+                            </h4>
+                            <div class="bg-gray-100 rounded-lg p-2">
+                                <iframe width="100%" height="315" 
+                                        src="https://www.youtube.com/embed/y0_GE5ErqY8" 
+                                        title="Easy AI Access for ALL (Replicate.com Beginners Tutorial)" 
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen
+                                        class="rounded">
+                                </iframe>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Duration: 8:07 - Shows how to set up and get API access</p>
+                        </div>
+                    </div>
+
+                    <!-- Concept 4: Set HTTP Node in n8n -->
+                    <div class="concept-card bg-white rounded-lg shadow-sm border border-gray-200 p-6 card-bg" data-tags="integration,advanced,credentials">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" class="checkbox-custom" id="concept-4" data-concept="4">
+                                <h3 class="text-xl font-semibold text-gray-900">4. Configure HTTP Node with Replicate Credentials</h3>
+                                <div class="flex space-x-2">
+                                    <span class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Integration</span>
+                                    <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">Advanced</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <p class="text-gray-700 mb-4">
+                                <strong>Context:</strong> The HTTP Request node in n8n is your gateway to communicating with Replicate's API. 
+                                This node allows you to send requests to trigger VEO 3 video generation, check job status, and retrieve results. 
+                                Proper configuration with authentication headers is crucial for successful API calls.
+                            </p>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p class="text-blue-800 text-sm">
+                                    <i class="fas fa-lightbulb mr-1"></i>
+                                    <strong>Pro Tip:</strong> n8n's HTTP node is incredibly versatile - you can use it to interact with any REST API, making it perfect for Replicate integration.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Configuration Steps:</h4>
+                                <ol class="list-decimal list-inside space-y-3 text-sm text-gray-700">
+                                    <li>
+                                        <strong>Add HTTP Request Node:</strong> Drag the HTTP Request node into your n8n workflow
+                                    </li>
+                                    <li>
+                                        <strong>Set Method:</strong> Select "POST" for creating new predictions
+                                    </li>
+                                    <li>
+                                        <strong>Configure URL:</strong> Use Replicate's prediction endpoint:
+                                        <code class="bg-white px-2 py-1 rounded text-xs ml-2">https://api.replicate.com/v1/predictions</code>
+                                    </li>
+                                    <li>
+                                        <strong>Add Authentication:</strong> In Headers, add:
+                                        <ul class="ml-4 mt-1 space-y-1">
+                                            <li>• <code>Authorization: Bearer YOUR_API_TOKEN</code></li>
+                                            <li>• <code>Content-Type: application/json</code></li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <strong>Configure Body:</strong> Set up JSON payload for VEO 3 model
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-1 gap-6 mb-6">
+                            <div class="bg-gray-900 rounded-lg p-4 text-green-400 font-mono text-xs overflow-x-auto">
+                                <div class="mb-2 text-gray-300">// Example n8n HTTP Node Configuration for VEO 3</div>
+                                <pre>{
+  "version": "82e8ba2a-1a74-42c4-8bac-d7a7a5d75cdb",
+  "input": {
+    "prompt": "A serene sunset over mountains with flowing water",
+    "width": 1280,
+    "height": 720,
+    "duration": 5,
+    "frames_per_second": 30
+  }
+}</pre>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="font-semibold text-gray-900 mb-2">Essential Resources</h4>
+                                    <div class="space-y-2">
+                                        <a href="https://replicate.com/google-deepmind/veo-3" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-robot mr-2"></i>
+                                            VEO 3 Model Page
+                                        </a>
+                                        <a href="https://replicate.com/docs/reference/http" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-api mr-2"></i>
+                                            Replicate API Reference
+                                        </a>
+                                        <a href="https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.httprequest/" target="_blank" 
+                                           class="flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-plug mr-2"></i>
+                                            n8n HTTP Node Docs
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="bg-green-50 rounded-lg p-4">
+                                    <h4 class="font-semibold text-green-900 mb-2">Troubleshooting</h4>
+                                    <ul class="text-green-700 text-xs space-y-1">
+                                        <li>• Check API token format (starts with "r8_")</li>
+                                        <li>• Verify JSON payload structure</li>
+                                        <li>• Monitor rate limits (5 requests/second)</li>
+                                        <li>• Use webhook for async processing</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-play-circle mr-2 text-blue-600"></i>
+                                Tutorial Video: n8n HTTP Node Configuration
+                            </h4>
+                            <div class="bg-gray-100 rounded-lg p-2">
+                                <iframe width="100%" height="315" 
+                                        src="https://www.youtube.com/embed/4Ac5LlxNS8M" 
+                                        title="n8n Tutorial: Access any API using the HTTP Request Node" 
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen
+                                        class="rounded">
+                                </iframe>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Duration: 10:40 - Complete guide to using HTTP Request node in n8n</p>
+                        </div>
+                    </div>
+
+                    <!-- Bonus Concept: Complete VEO 3 Workflow -->
+                    <div class="concept-card bg-white rounded-lg shadow-sm border border-gray-200 p-6 card-bg" data-tags="integration,advanced,setup">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" class="checkbox-custom" id="concept-5" data-concept="5">
+                                <h3 class="text-xl font-semibold text-gray-900">5. Build Complete VEO 3 Automation Workflow</h3>
+                                <div class="flex space-x-2">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">Integration</span>
+                                    <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">Advanced</span>
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Bonus</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <p class="text-gray-700 mb-4">
+                                <strong>Context:</strong> Now that you have all the components set up, this final step shows you how to create a complete automated workflow 
+                                that can generate VEO 3 videos from text prompts, monitor the generation process, and handle the results. 
+                                This represents the culmination of your VEO 3 + Replicate + n8n integration.
+                            </p>
+                            <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3">
+                                <p class="text-purple-800 text-sm">
+                                    <i class="fas fa-star mr-1"></i>
+                                    <strong>Advanced Integration:</strong> This workflow demonstrates real-world automation combining AI video generation with intelligent workflow management.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Complete Workflow Components:</h4>
+                                <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <h5 class="font-medium text-gray-800 mb-2">Input Processing:</h5>
+                                        <ul class="space-y-1 text-gray-600">
+                                            <li>• Webhook/Manual trigger</li>
+                                            <li>• Prompt validation & enhancement</li>
+                                            <li>• Parameter configuration</li>
+                                            <li>• Error handling setup</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-medium text-gray-800 mb-2">Generation & Monitoring:</h5>
+                                        <ul class="space-y-1 text-gray-600">
+                                            <li>• HTTP request to Replicate API</li>
+                                            <li>• Job ID extraction & storage</li>
+                                            <li>• Polling for completion status</li>
+                                            <li>• Result retrieval & processing</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-play-circle mr-2 text-blue-600"></i>
+                                Featured Tutorial: Complete VEO 3 + n8n Automation
+                            </h4>
+                            <div class="bg-gray-100 rounded-lg p-2">
+                                <iframe width="100%" height="315" 
+                                        src="https://www.youtube.com/embed/iFuC0HfU9xQ" 
+                                        title="How to Automate Stunning AI Videos with ChatGPT + VEO3 | n8n Tutorial" 
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen
+                                        class="rounded">
+                                </iframe>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Duration: 16:54 - Complete end-to-end workflow tutorial (Latest: 1 day ago!)</p>
+                        </div>
+
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <div class="bg-green-50 rounded-lg p-3">
+                                <h5 class="font-medium text-green-900 mb-1">Success Indicators</h5>
+                                <ul class="text-green-700 text-xs space-y-1">
+                                    <li>✓ Video generation triggered</li>
+                                    <li>✓ Status polling active</li>
+                                    <li>✓ Results downloaded</li>
+                                    <li>✓ Notifications sent</li>
+                                </ul>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-3">
+                                <h5 class="font-medium text-blue-900 mb-1">Key Features</h5>
+                                <ul class="text-blue-700 text-xs space-y-1">
+                                    <li>• Async processing</li>
+                                    <li>• Error recovery</li>
+                                    <li>• Progress tracking</li>
+                                    <li>• Multi-format output</li>
+                                </ul>
+                            </div>
+                            <div class="bg-yellow-50 rounded-lg p-3">
+                                <h5 class="font-medium text-yellow-900 mb-1">Next Steps</h5>
+                                <ul class="text-yellow-700 text-xs space-y-1">
+                                    <li>• Add batch processing</li>
+                                    <li>• Implement queuing</li>
+                                    <li>• Create templates</li>
+                                    <li>• Monitor costs</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completion Message -->
+                <div id="completion-message" class="hidden bg-gradient-to-r from-green-500 to-blue-600 rounded-lg p-6 text-white text-center mt-8">
+                    <div class="mb-4">
+                        <i class="fas fa-trophy text-4xl mb-2"></i>
+                        <h3 class="text-2xl font-bold">Congratulations! 🎉</h3>
+                        <p class="text-lg">You've completed the VEO 3 + Replicate + n8n setup guide!</p>
+                    </div>
+                    <p class="text-sm opacity-90">
+                        You're now ready to create amazing AI-generated videos with automated workflows. 
+                        Start experimenting with different prompts and parameters to unlock the full potential of VEO 3!
+                    </p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let completedConcepts = JSON.parse(localStorage.getItem('veo3-progress') || '[]');
+        let isDarkMode = localStorage.getItem('dark-mode') === 'true';
+        let activeFilter = 'all';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDarkMode();
+            initializeProgress();
+            initializeFilters();
+            initializeSearch();
+            initializeCheckboxes();
+            updateProgress();
+        });
+
+        // Dark Mode
+        function initializeDarkMode() {
+            const toggle = document.getElementById('dark-mode-toggle');
+            const body = document.body;
+            const header = document.getElementById('header');
+            
+            if (isDarkMode) {
+                body.classList.add('dark');
+                header.classList.add('dark');
+                toggle.innerHTML = '<i class="fas fa-sun text-yellow-400"></i>';
+            }
+            
+            toggle.addEventListener('click', function() {
+                isDarkMode = !isDarkMode;
+                body.classList.toggle('dark');
+                header.classList.toggle('dark');
+                
+                if (isDarkMode) {
+                    toggle.innerHTML = '<i class="fas fa-sun text-yellow-400"></i>';
+                } else {
+                    toggle.innerHTML = '<i class="fas fa-moon text-gray-600"></i>';
+                }
+                
+                localStorage.setItem('dark-mode', isDarkMode);
+            });
+        }
+
+        // Progress Management
+        function initializeProgress() {
+            const progressRing = document.querySelector('.progress-ring-circle');
+            const progressText = document.getElementById('progress-text');
+            
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const totalConcepts = 5;
+            const completedCount = completedConcepts.length;
+            const percentage = Math.round((completedCount / totalConcepts) * 100);
+            
+            const progressRing = document.querySelector('.progress-ring-circle');
+            const progressText = document.getElementById('progress-text');
+            const circumference = 283; // 2 * π * radius (45% of 100)
+            const offset = circumference - (percentage / 100) * circumference;
+            
+            progressRing.style.strokeDashoffset = offset;
+            progressText.textContent = `${percentage}% Complete (${completedCount}/${totalConcepts})`;
+            
+            // Show completion message if all done
+            if (completedCount === totalConcepts) {
+                document.getElementById('completion-message').classList.remove('hidden');
+                triggerConfetti();
+            } else {
+                document.getElementById('completion-message').classList.add('hidden');
+            }
+        }
+
+        // Confetti Effect
+        function triggerConfetti() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 50,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0, y: 0.6 }
+                });
+            }, 250);
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 50,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1, y: 0.6 }
+                });
+            }, 400);
+        }
+
+        // Filter System
+        function initializeFilters() {
+            const filterButtons = document.querySelectorAll('.tag-filter');
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Update active filter
+                    filterButtons.forEach(btn => {
+                        btn.classList.remove('bg-blue-50', 'text-blue-700');
+                        btn.classList.add('hover:bg-gray-50');
+                    });
+                    
+                    this.classList.add('bg-blue-50', 'text-blue-700');
+                    this.classList.remove('hover:bg-gray-50');
+                    
+                    activeFilter = this.dataset.tag;
+                    filterConcepts();
+                });
+            });
+        }
+
+        function filterConcepts() {
+            const concepts = document.querySelectorAll('.concept-card');
+            
+            concepts.forEach(concept => {
+                const tags = concept.dataset.tags.split(',');
+                const shouldShow = activeFilter === 'all' || tags.includes(activeFilter);
+                
+                if (shouldShow) {
+                    concept.style.display = 'block';
+                } else {
+                    concept.style.display = 'none';
+                }
+            });
+        }
+
+        // Search Functionality
+        function initializeSearch() {
+            const searchInput = document.getElementById('search-input');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const concepts = document.querySelectorAll('.concept-card');
+                
+                concepts.forEach(concept => {
+                    const text = concept.textContent.toLowerCase();
+                    const shouldShow = text.includes(searchTerm);
+                    
+                    if (activeFilter === 'all' || concept.dataset.tags.split(',').includes(activeFilter)) {
+                        concept.style.display = shouldShow ? 'block' : 'none';
+                    }
+                });
+            });
+        }
+
+        // Checkbox Management
+        function initializeCheckboxes() {
+            const checkboxes = document.querySelectorAll('.checkbox-custom');
+            
+            // Set initial states
+            checkboxes.forEach(checkbox => {
+                const conceptId = parseInt(checkbox.dataset.concept);
+                if (completedConcepts.includes(conceptId)) {
+                    checkbox.checked = true;
+                }
+                
+                checkbox.addEventListener('change', function() {
+                    const conceptId = parseInt(this.dataset.concept);
+                    
+                    if (this.checked) {
+                        if (!completedConcepts.includes(conceptId)) {
+                            completedConcepts.push(conceptId);
+                            // Mini confetti for individual completion
+                            confetti({
+                                particleCount: 30,
+                                spread: 50,
+                                origin: { 
+                                    x: this.getBoundingClientRect().left / window.innerWidth,
+                                    y: this.getBoundingClientRect().top / window.innerHeight 
+                                }
+                            });
+                        }
+                    } else {
+                        completedConcepts = completedConcepts.filter(id => id !== conceptId);
+                    }
+                    
+                    localStorage.setItem('veo3-progress', JSON.stringify(completedConcepts));
+                    updateProgress();
+                });
+            });
+        }
+
+        // Reset Progress (for testing)
+        function resetProgress() {
+            if (confirm('Are you sure you want to reset all progress?')) {
+                completedConcepts = [];
+                localStorage.removeItem('veo3-progress');
+                document.querySelectorAll('.checkbox-custom').forEach(cb => cb.checked = false);
+                updateProgress();
+            }
+        }
+
+        // Add reset button functionality (hidden, accessible via console)
+        window.resetVEO3Progress = resetProgress;
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"94e4177d1fa0d570","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.6.2","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
+</body>
+</html>
+    <script id="html_badge_script1">
+        window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDj7YAyaFf38T4UvayMKoXOvDSra2uop9kDf3Cj9YijzRRO9AU8ekuFC7rBXbVXcG1n8sLyZ9dMnFoD5uf7sccZy1m0%2Fa%2BC1%2BdW8HoEjDL7B3YV7xm71TYzf9z6M9fngAtNp0jl1yhfz1WLGEIzGh0NTtCbZmskFC6Y3bT%2F%2BkXcTMvPTuaN1jSk%2Ft7azIA%2FYmvbUJK2oZ5EC9uKy8YiAU112E8F%2Fwd%2Fct0JZ7ThrxpgVdIRDP16r4NdibwEuCmVII9kbULrYRS4OKFoSX%2F9AaVhe23LnJH30ZpgdoRW6Bg7smOa30Uu%2F4K6etHQsYv2XISEkeGkkvD6uC%2BpdJ54R0%2FgRhCkDdDFO6NLJwrGAjOpew65EgVyvHNpq7%2F9KteNTEf8f1ctQ25AkZH6t1U5c36GscGT9nvo4EI1g%2BpjhLQxeJR5WM%2BtSI9PgTvz6Ur7mWejWBYxj4to3sZ1iim7oyc8K0RDDdrmldIRyrY78WKldLbDZbyvbmhi0siEGc0kj0vVQjPiZACP5Okxu68xtsAzk%3D";
+        window.__genspark_locale = "en-US";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDj7YAyaFf38T4UvayMKoXOvDSra2uop9kDf3Cj9YijzRRO9AU8ekuFC7rBXbVXcG1n8sLyZ9dMnFoD5uf7sccZy1m0/a+C1+dW8HoEjDL7B3YV7xm71TYzf9z6M9fngAtNp0jl1yhfz1WLGEIzGh0NTtCbZmskFC6Y3bT/+kXcTMvPTuaN1jSk/t7azIA/YmvbUJK2oZ5EC9uKy8YiAU112E8F/wd/ct0JZ7ThrxpgVdIRDP16r4NdibwEuCmVII9kbULrYRS4OKFoSX/9AaVhe23LnJH30ZpgdoRW6Bg7smOa30Uu/4K6etHQsYv2XISEkeGkkvD6uC+pdJ54R0/gRhCkDdDFO6NLJwrGAjOpew65EgVyvHNpq7/9KteNTEf8f1ctQ25AkZH6t1U5c36GscGT9nvo4EI1g+pjhLQxeJR5WM+tSI9PgTvz6Ur7mWejWBYxj4to3sZ1iim7oyc8K0RDDdrmldIRyrY78WKldLbDZbyvbmhi0siEGc0kj0vVQjPiZACP5Okxu68xtsAzk=";
+    </script>
+    
+    <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>
+    
